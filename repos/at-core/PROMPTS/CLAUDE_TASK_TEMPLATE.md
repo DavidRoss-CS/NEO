@@ -1,0 +1,1 @@
+# Task\nImplement or evolve contracts and pure domain use-cases.\n# Guardrails\nBackward-compatible first. Idempotency. Tracing.

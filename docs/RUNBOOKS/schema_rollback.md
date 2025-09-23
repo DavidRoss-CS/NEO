@@ -1,0 +1,1 @@
+If compatibility breaks, freeze producers, revert schema to last compatible, redeploy.

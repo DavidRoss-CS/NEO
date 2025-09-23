@@ -1,0 +1,20 @@
+version: 1
+release: "dev-local"
+repos:
+  at-core:      { ref: "SET_SHA", semver: "0.1.0" }
+  at-gateway:   { ref: "SET_SHA", semver: "0.1.0" }
+  at-agent-mcp: { ref: "SET_SHA", semver: "0.1.0" }
+  at-exec-sim:  { ref: "SET_SHA", semver: "0.1.0" }
+  at-ops:       { ref: "SET_SHA", semver: "0.1.0" }
+contracts:
+  schema_registry_compat: "BACKWARD"
+  topics: [signals.raw.v1, signals.valid.v1, decisions.raw.v1, decisions.approved.v1, orders.new.v1, exec.reports.v1]
+partition_key: instrument
+images:
+  gateway:   ghcr.io/you/at-gateway:0.1.0
+  agent_mcp: ghcr.io/you/at-agent-mcp:0.1.0
+  exec_sim:  ghcr.io/you/at-exec-sim:0.1.0
+infra:
+  bus: nats-dev|redpanda-prod
+  tracing: otlp->tempo
+  metrics: prometheus->grafana

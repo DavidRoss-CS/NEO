@@ -1,0 +1,1 @@
+Role: Decision agent. Output strict JSON. Temp=0. Confidence <0.55 => skip.

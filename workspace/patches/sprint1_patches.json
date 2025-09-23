@@ -1,0 +1,84 @@
+[
+  {
+    "path": "MASTER_GUIDE.md",
+    "type": "replace_section",
+    "anchor": "### Ports Table",
+    "replacement": "### Ports Table\n\n| Service | Port | Notes |\n|---------|------|-------|\n| at-gateway | 8001 | Webhook endpoints |\n| at-mcp | 8002 | Agent management |\n| at-exec-sim | 8004 | Execution simulation |\n| NATS | 4222 | Message broker |\n| Prometheus | 9090 | Metrics collection |\n| Grafana | 3000 | Dashboards (admin/admin) |"
+  },
+  {
+    "path": "repos/at-gateway/README.md",
+    "type": "replace_section",
+    "anchor": "## Environment Variables",
+    "replacement": "## Environment Variables\n\n| Variable | Sample Value | Description |\n|----------|--------------|-------------|\n| `SERVICE_NAME` | `at-gateway` | Service identifier for logs/metrics |\n| `NATS_URL` | `nats://localhost:4222` | NATS server connection |\n| `NATS_STREAM` | `trading-events` | JetStream stream name |\n| `NATS_DURABLE` | `gateway-consumer` | Durable consumer name |\n| `API_KEY_HMAC_SECRET` | `your-secret-key` | Webhook signature validation |\n| `IDEMPOTENCY_TTL_SEC` | `3600` | Duplicate detection window |\n| `RATE_LIMIT_RPS` | `100` | Requests per second limit |\n| `REPLAY_WINDOW_SEC` | `300` | Event replay tolerance |\n| `LOG_LEVEL` | `INFO` | Logging verbosity |\n| `ENV` | `development` | Environment name |"
+  },
+  {
+    "path": "repos/at-gateway/API_SPEC.md",
+    "type": "replace_section",
+    "anchor": "### Authentication Headers",
+    "replacement": "### Authentication Headers\n\nAll webhook requests must include the following headers:\n\n| Header | Required | Description |\n|--------|----------|-------------|\n| `X-Signature` | Yes | HMAC-SHA256 signature of request body |\n| `X-Timestamp` | Yes | Unix timestamp of request (for replay protection) |\n| `X-Nonce` | Yes | Unique request identifier |\n| `Idempotency-Key` | Yes | Duplicate request prevention key |\n| `X-API-Version` | Yes | API version (e.g., \"1.0.0\") |\n| `Content-Type` | Yes | Must be \"application/json\" |\n\n**Signature Calculation:**\n```\nSignature = HMAC-SHA256(secret, timestamp + nonce + body)\n```\n\n**Request Size Limit:** 1MB maximum payload size."
+  },
+  {
+    "path": "repos/at-core/README.md",
+    "type": "replace_section",
+    "anchor": "## Environment Variables",
+    "replacement": "## Environment Variables\n\n| Variable | Sample Value | Description |\n|----------|--------------|-------------|\n| `SERVICE_NAME` | `at-core` | Service identifier for logs/metrics |\n| `NATS_URL` | `nats://localhost:4222` | NATS server connection |\n| `NATS_STREAM` | `trading-events` | JetStream stream name |\n| `NATS_DURABLE` | `core-consumer` | Durable consumer name |\n| `NATS_SUBJECTS_PREFIX` | `signals,decisions,executions` | Subject namespace prefixes |\n| `IDEMPOTENCY_TTL_SEC` | `3600` | Duplicate detection window |\n| `LOG_LEVEL` | `INFO` | Logging verbosity |\n| `ENV` | `development` | Environment name |"
+  },
+  {
+    "path": "repos/at-agents/README.md",
+    "type": "replace_section",
+    "anchor": "## Environment Variables",
+    "replacement": "## Environment Variables\n\n| Variable | Sample Value | Description |\n|----------|--------------|-------------|\n| `SERVICE_NAME` | `at-agent-momentum` | Service identifier for logs/metrics |\n| `NATS_URL` | `nats://localhost:4222` | NATS server connection |\n| `NATS_STREAM` | `trading-events` | JetStream stream name |\n| `NATS_DURABLE` | `agent-consumer` | Durable consumer name |\n| `RATE_LIMIT_RPS` | `10` | Message processing rate limit |\n| `REPLAY_WINDOW_SEC` | `300` | Event replay tolerance |\n| `IDEMPOTENCY_TTL_SEC` | `3600` | Duplicate detection window |\n| `LOG_LEVEL` | `INFO` | Logging verbosity |\n| `ENV` | `development` | Environment name |"
+  },
+  {
+    "path": "repos/at-orchestrator/README.md",
+    "type": "replace_section",
+    "anchor": "## Environment Variables",
+    "replacement": "## Environment Variables\n\n| Variable | Sample Value | Description |\n|----------|--------------|-------------|\n| `SERVICE_NAME` | `at-orchestrator` | Service identifier for logs/metrics |\n| `NATS_URL` | `nats://localhost:4222` | NATS server connection |\n| `NATS_STREAM` | `trading-events` | JetStream stream name |\n| `NATS_DURABLE` | `orchestrator-consumer` | Durable consumer name |\n| `RATE_LIMIT_RPS` | `50` | Decision processing rate limit |\n| `IDEMPOTENCY_TTL_SEC` | `3600` | Duplicate detection window |\n| `LOG_LEVEL` | `INFO` | Logging verbosity |\n| `ENV` | `development` | Environment name |"
+  },
+  {
+    "path": "repos/at-mcp/README.md",
+    "type": "replace_section",
+    "anchor": "## Configuration",
+    "replacement": "## Configuration\n\n### Port Assignment\nThe MCP server runs on **port 8002** to avoid conflicts with other services.\n\n### Environment Variables\n\n| Variable | Sample Value | Description |\n|----------|--------------|-------------|\n| `SERVICE_NAME` | `at-mcp` | Service identifier for logs/metrics |\n| `MCP_SERVER_PORT` | `8002` | MCP server listening port |\n| `NATS_URL` | `nats://localhost:4222` | NATS server connection |\n| `NATS_STREAM` | `trading-events` | JetStream stream name |\n| `NATS_DURABLE` | `mcp-consumer` | Durable consumer name |\n| `API_KEY_HMAC_SECRET` | `your-secret-key` | Tool authentication secret |\n| `RATE_LIMIT_RPS` | `20` | Tool calls per second limit |\n| `IDEMPOTENCY_TTL_SEC` | `3600` | Duplicate detection window |\n| `LOG_LEVEL` | `INFO` | Logging verbosity |\n| `ENV` | `development` | Environment name |"
+  },
+  {
+    "path": "repos/at-mcp/MCP_OVERVIEW.md",
+    "type": "replace_section",
+    "anchor": "### Idempotency",
+    "replacement": "### Idempotency\n\nAll tool calls must include an idempotency key to prevent duplicate execution. The MCP server maintains a cache of processed keys with a **3600-second (1 hour) TTL**.\n\n**Implementation:**\n```python\nidempotency_key = f\"tool_{tool_name}_{hash(params)}_{timestamp}\"\ncache_ttl = 3600  # 1 hour\n```\n\n**Duplicate Handling:** If a duplicate key is detected within the TTL window, the server returns the cached result without re-executing the tool."
+  },
+  {
+    "path": "repos/at-mcp/SERVER_TEMPLATE.md",
+    "type": "replace_section",
+    "anchor": "### Request Validation",
+    "replacement": "### Request Validation\n\n**Payload Limits:**\n- Maximum request body size: **1MB**\n- Maximum parameter string length: 10,000 characters\n- Maximum nested object depth: 10 levels\n\n**Port Configuration:**\n```python\nMCP_SERVER_PORT = int(os.getenv('MCP_SERVER_PORT', '8002'))\napp.run(host='0.0.0.0', port=MCP_SERVER_PORT)\n```"
+  },
+  {
+    "path": "repos/at-mcp/SECURITY.md",
+    "type": "replace_section",
+    "anchor": "### Required Headers",
+    "replacement": "### Required Headers\n\nAll tool requests must include authentication headers:\n\n| Header | Required | Description |\n|--------|----------|-------------|\n| `X-Signature` | Yes | HMAC-SHA256 signature of request body |\n| `X-Timestamp` | Yes | Unix timestamp (for replay protection) |\n| `X-Nonce` | Yes | Unique request identifier |\n| `Idempotency-Key` | Yes | Duplicate request prevention |\n| `X-API-Version` | Yes | API version (e.g., \"1.0.0\") |\n\n**Payload Limits:** 1MB maximum request size for all tool calls."
+  },
+  {
+    "path": "repos/at-observability/prometheus.yml",
+    "type": "replace_section",
+    "anchor": "  # MCP servers",
+    "replacement": "  # MCP servers\n  - job_name: 'mcp'\n    static_configs:\n      - targets: ['at-mcp:8002']\n        labels:\n          service: 'at-mcp'\n          component: 'tools'\n    metrics_path: '/metrics'"
+  },
+  {
+    "path": "repos/at-gateway/ERROR_CATALOG.md",
+    "type": "full_replace",
+    "contents": "# Gateway Error Catalog\n\n## Error Code Format\n\nAll gateway errors use the `GW-xxx` namespace where `xxx` is a three-digit code.\n\n## Error Categories\n\n### Authentication Errors (GW-100 series)\n\n| Code | Description | HTTP Status | Retry |\n|------|-------------|-------------|-------|\n| GW-101 | Missing X-Signature header | 401 | No |\n| GW-102 | Invalid signature format | 401 | No |\n| GW-103 | Signature verification failed | 401 | No |\n| GW-104 | Missing X-Timestamp header | 401 | No |\n| GW-105 | Timestamp outside replay window | 401 | No |\n| GW-106 | Missing X-Nonce header | 401 | No |\n| GW-107 | Missing Idempotency-Key header | 401 | No |\n| GW-108 | Missing X-API-Version header | 401 | No |\n| GW-109 | Unsupported API version | 400 | No |\n\n### Validation Errors (GW-200 series)\n\n| Code | Description | HTTP Status | Retry |\n|------|-------------|-------------|-------|\n| GW-201 | Invalid JSON payload | 400 | No |\n| GW-202 | Missing required field | 400 | No |\n| GW-203 | Invalid field type | 400 | No |\n| GW-204 | Field value out of range | 400 | No |\n| GW-205 | Unsupported instrument | 400 | No |\n| GW-206 | Payload size exceeds 1MB limit | 413 | No |\n| GW-207 | Schema validation failed | 400 | No |\n| GW-208 | Duplicate idempotency key | 409 | No |\n\n### Processing Errors (GW-300 series)\n\n| Code | Description | HTTP Status | Retry |\n|------|-------------|-------------|-------|\n| GW-301 | NATS connection failed | 503 | Yes |\n| GW-302 | Failed to publish message | 503 | Yes |\n| GW-303 | Message transformation error | 500 | No |\n| GW-304 | Rate limit exceeded | 429 | Yes |\n| GW-305 | Service temporarily unavailable | 503 | Yes |\n\n### System Errors (GW-400 series)\n\n| Code | Description | HTTP Status | Retry |\n|------|-------------|-------------|-------|\n| GW-401 | Internal server error | 500 | No |\n| GW-402 | Database connection failed | 503 | Yes |\n| GW-403 | Configuration error | 500 | No |\n| GW-404 | Health check failed | 503 | Yes |\n\n## Error Response Format\n\n```json\n{\n  \"error\": {\n    \"code\": \"GW-201\",\n    \"message\": \"Invalid JSON payload\",\n    \"details\": \"Expected JSON object, received malformed data\",\n    \"timestamp\": \"2024-01-15T10:30:45.123Z\",\n    \"correlation_id\": \"req_abc123\",\n    \"retry_after\": null\n  }\n}\n```\n\n## Retry Guidelines\n\n- **Retryable errors**: Use exponential backoff (1s, 2s, 4s, 8s, 16s)\n- **Non-retryable errors**: Fix the request and resubmit\n- **Rate limit errors**: Respect `retry_after` value in response\n\n## Monitoring Integration\n\nAll errors generate metrics:\n```\ngateway_errors_total{code=\"GW-201\", category=\"validation\"}\ngateway_error_rate_percent{service=\"gateway\"}\n```"
+  },
+  {
+    "path": "repos/at-core/ERROR_CATALOG.md",
+    "type": "full_replace",
+    "contents": "# Core Error Catalog\n\n## Error Code Format\n\nAll core service errors use the `CORE-xxx` namespace where `xxx` is a three-digit code.\n\n## Error Categories\n\n### Schema Errors (CORE-100 series)\n\n| Code | Description | Retry |\n|------|-------------|-------|\n| CORE-101 | Schema not found | No |\n| CORE-102 | Schema version mismatch | No |\n| CORE-103 | Schema validation failed | No |\n| CORE-104 | Unknown schema format | No |\n| CORE-105 | Schema registry unavailable | Yes |\n| CORE-106 | Schema evolution conflict | No |\n| CORE-107 | Invalid schema definition | No |\n\n### Event Processing Errors (CORE-200 series)\n\n| Code | Description | Retry |\n|------|-------------|-------|\n| CORE-201 | Event deserialization failed | No |\n| CORE-202 | Missing required event field | No |\n| CORE-203 | Invalid event type | No |\n| CORE-204 | Event timestamp invalid | No |\n| CORE-205 | Event correlation ID missing | No |\n| CORE-206 | Event sequence number invalid | No |\n| CORE-207 | Event payload too large | No |\n\n### NATS Integration Errors (CORE-300 series)\n\n| Code | Description | Retry |\n|------|-------------|-------|\n| CORE-301 | NATS connection lost | Yes |\n| CORE-302 | Subject subscription failed | Yes |\n| CORE-303 | Message acknowledgment failed | Yes |\n| CORE-304 | Consumer creation failed | Yes |\n| CORE-305 | Stream not found | No |\n| CORE-306 | Consumer lag exceeded | No |\n| CORE-307 | JetStream unavailable | Yes |\n\n### Data Validation Errors (CORE-400 series)\n\n| Code | Description | Retry |\n|------|-------------|-------|\n| CORE-401 | Instrument validation failed | No |\n| CORE-402 | Price validation failed | No |\n| CORE-403 | Quantity validation failed | No |\n| CORE-404 | Side validation failed | No |\n| CORE-405 | Timestamp validation failed | No |\n| CORE-406 | Currency validation failed | No |\n| CORE-407 | Market data inconsistent | No |\n\n### System Errors (CORE-500 series)\n\n| Code | Description | Retry |\n|------|-------------|-------|\n| CORE-501 | Configuration invalid | No |\n| CORE-502 | Service initialization failed | No |\n| CORE-503 | Health check failed | Yes |\n| CORE-504 | Resource exhausted | Yes |\n| CORE-505 | Dependency unavailable | Yes |\n\n## Error Context\n\nAll core errors include contextual information:\n\n```json\n{\n  \"error\": {\n    \"code\": \"CORE-203\",\n    \"message\": \"Invalid event type\",\n    \"context\": {\n      \"event_type\": \"invalid.signal\",\n      \"expected_types\": [\"signals.raw\", \"signals.normalized\"],\n      \"correlation_id\": \"req_abc123\",\n      \"timestamp\": \"2024-01-15T10:30:45.123Z\"\n    },\n    \"retry_after\": null\n  }\n}\n```\n\n## Integration Points\n\n### Metrics\n```\ncore_errors_total{code=\"CORE-203\", category=\"event_processing\"}\ncore_error_rate_percent{service=\"at-core\"}\n```\n\n### Logging\n```json\n{\n  \"level\": \"ERROR\",\n  \"service\": \"at-core\",\n  \"error_code\": \"CORE-203\",\n  \"correlation_id\": \"req_abc123\",\n  \"message\": \"Invalid event type received\"\n}\n```\n\n## Recovery Procedures\n\n### CORE-300 series (NATS Issues)\n1. Check NATS server connectivity\n2. Verify subject permissions\n3. Restart consumer if needed\n4. Check JetStream status\n\n### CORE-100 series (Schema Issues)\n1. Verify schema registry accessibility\n2. Check schema version compatibility\n3. Update schema definitions if needed\n4. Restart services after schema updates"
+  },
+  {
+    "path": "ARCHITECTURE_OVERVIEW.md",
+    "type": "replace_section",
+    "anchor": "See [at-observability/METRICS.md](repos/at-observability/METRICS.md) for complete metrics catalog.",
+    "replacement": "See [at-observability/OBSERVABILITY_MODEL.md](repos/at-observability/OBSERVABILITY_MODEL.md) for complete metrics catalog."
+  }
+]

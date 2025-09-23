@@ -1,0 +1,3 @@
+- Branches: feat/<ticket>, fix/<ticket>.
+- Required checks: lint, unit, contract, integration, e2e, avro-compat, observability-lint.
+- Pact required for any contract change.

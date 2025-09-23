@@ -1,0 +1,1 @@
+Rebuild from topic offsets. Consumers start at earliest and materialize read models.

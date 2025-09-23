@@ -1,0 +1,1 @@
+# at-agent-mcp\nStub decision server. Day 2 returns JSON decisions from strength.

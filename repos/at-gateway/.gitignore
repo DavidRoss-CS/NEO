@@ -1,0 +1,5 @@
+workspace/
+*.tmp
+*.cache
+__pycache__/
+.env*

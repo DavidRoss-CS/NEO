@@ -1,0 +1,1 @@
+Implement FastAPI webhook. Validate input. Day 1 may echo. Day 2 must publish to bus.

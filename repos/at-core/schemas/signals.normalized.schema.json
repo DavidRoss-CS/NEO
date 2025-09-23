@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.trading.example.com/signals.normalized.v1.json",
+  "title": "Normalized Trading Signal",
+  "description": "Standardized signal format after normalization. Ready for consumption by trading agents.",
+  "version": "1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "corr_id",
+    "source",
+    "instrument",
+    "price",
+    "timestamp",
+    "normalized_at"
+  ],
+  "properties": {
+    "corr_id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9_-]+$",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Correlation ID from original raw signal for end-to-end tracing."
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "tradingview",
+        "custom",
+        "test"
+      ],
+      "description": "Original source system of the signal."
+    },
+    "instrument": {
+      "type": "string",
+      "pattern": "^[A-Z]{3,6}(/[A-Z]{3,6})?$",
+      "description": "Standardized instrument identifier (e.g., EURUSD, BTC/USD, SPY).",
+      "examples": ["EURUSD", "BTC/USD", "SPY", "GBPJPY"]
+    },
+    "price": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "Signal price level. For forex: exchange rate. For crypto/stocks: price in base currency."
+    },
+    "side": {
+      "type": ["string", "null"],
+      "enum": ["buy", "sell", null],
+      "description": "Trading direction. Null for informational signals without trade intent."
+    },
+    "strength": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Signal confidence/strength (0.0 to 1.0). Null if not provided by source."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Original signal timestamp from source system (when signal was generated)."
+    },
+    "normalized_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this normalized signal was created by the normalization service."
+    }
+  },
+  "examples": [
+    {
+      "corr_id": "req_abc123",
+      "source": "tradingview",
+      "instrument": "EURUSD",
+      "price": 1.0945,
+      "side": "buy",
+      "strength": 0.78,
+      "timestamp": "2024-01-15T10:30:00Z",
+      "normalized_at": "2024-01-15T10:30:45.234Z"
+    },
+    {
+      "corr_id": "req_def456",
+      "source": "custom",
+      "instrument": "BTC/USD",
+      "price": 42500.00,
+      "side": "sell",
+      "strength": null,
+      "timestamp": "2024-01-15T14:22:00Z",
+      "normalized_at": "2024-01-15T14:22:10.567Z"
+    },
+    {
+      "corr_id": "test_789",
+      "source": "test",
+      "instrument": "SPY",
+      "price": 485.50,
+      "side": null,
+      "strength": 0.85,
+      "timestamp": "2024-01-15T16:45:30Z",
+      "normalized_at": "2024-01-15T16:45:30.891Z"
+    }
+  ],
+  "additionalMetadata": {
+    "changelog": [
+      {
+        "version": "1.0.0",
+        "date": "2024-01-01",
+        "changes": "Initial normalized schema definition"
+      }
+    ],
+    "normalizationRules": {
+      "instrument": "Convert all ticker formats to standardized form (EURUSD, BTC/USD, etc.)",
+      "price": "Extract numeric price from various source formats",
+      "side": "Map source action/direction to buy/sell/null",
+      "timestamp": "Convert source time formats to ISO 8601"
+    },
+    "usage": {
+      "producers": ["at-normalizer"],
+      "consumers": ["at-agent-momentum", "at-agent-arbitrage", "at-risk-manager"]
+    }
+  }
+}

@@ -1,0 +1,1 @@
+{"instrument":"SI1!","price":28.41,"signal":"breakout_long","strength":0.72} -> {"instrument":"SI1!","side":"buy","size":1,"confidence":0.72,"rationale":"demo","ttl_ms":60000}

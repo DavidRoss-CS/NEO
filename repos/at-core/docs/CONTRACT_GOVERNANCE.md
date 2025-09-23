@@ -1,0 +1,1 @@
+Contracts in Avro. Versioned topics. Deprecate with dual-write window.

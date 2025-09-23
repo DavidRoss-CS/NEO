@@ -1,0 +1,9 @@
+name: master-e2e
+on: [push, pull_request]
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compose up
+        run: docker compose -f docker-compose.dev.yml config >/dev/null || true

@@ -1,18 +1,18 @@
 # Core dependencies
-fastapi
-uvicorn[standard]
-structlog
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+structlog==23.2.0
 
 # NATS messaging
-nats-py
+nats-py==2.6.0
 
 # Prometheus metrics
-prometheus-client
+prometheus-client==0.19.0
 
 # Schema validation
-jsonschema
-pydantic
+jsonschema==4.20.0
+pydantic==2.5.0
 
-# Development and testing
-pytest
-httpx
+# Testing only (not installed in production)
+# pytest==7.4.3
+# httpx==0.25.1

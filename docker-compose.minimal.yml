@@ -1,0 +1,63 @@
+version: "3.9"
+
+services:
+  # Core messaging infrastructure
+  nats:
+    image: nats:2.10
+    command: ["-js", "-m", "8222"]
+    ports: ["4222:4222", "8222:8222"]
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8222/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # NATS stream initialization (runs once)
+  nats-init:
+    build: ./repos/at-nats-init
+    depends_on:
+      - nats
+    environment:
+      - NATS_URL=nats://nats:4222
+      - STREAM_NAME=trading-events
+    restart: "no"
+
+  # Gateway service (webhooks and market data ingestion)
+  gateway:
+    build: ./repos/at-gateway
+    depends_on:
+      - nats-init
+    environment:
+      - NATS_URL=nats://nats:4222
+      - API_KEY_HMAC_SECRET=test-secret
+      - PORT=8001
+      - LOG_LEVEL=INFO
+    ports: ["8001:8001"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # Execution simulator (trade execution)
+  exec:
+    build: ./repos/at-exec-sim
+    depends_on:
+      - nats-init
+    environment:
+      - NATS_URL=nats://nats:4222
+      - PORT=8004
+      - LOG_LEVEL=INFO
+    ports: ["8004:8004"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+networks:
+  default:
+    name: neo_minimal_default

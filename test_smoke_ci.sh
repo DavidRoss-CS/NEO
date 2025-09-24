@@ -52,17 +52,16 @@ wait_for_service() {
 
 # Start services
 log_info "Starting services..."
-docker compose -f docker-compose.dev.yml up -d
+docker-compose -f docker-compose.minimal.yml up -d
 
 # Wait for critical services
 log_info "Waiting for services to be ready..."
 wait_for_service "http://localhost:8001/healthz" "Gateway"
-wait_for_service "http://localhost:8002/healthz" "Agent"
 wait_for_service "http://localhost:8004/healthz" "Exec-Sim"
 
 # Verify NATS JetStream consumer exists
 log_info "Verifying JetStream consumer configuration..."
-CONSUMER_INFO=$(docker run --rm --network agentic-trading-architecture-full_default \
+CONSUMER_INFO=$(docker run --rm --network neo_minimal_default \
     natsio/nats-box:latest \
     nats -s nats://nats:4222 con info trading-events exec-sim-consumer --json 2>/dev/null || echo "{}")
 
@@ -76,7 +75,7 @@ fi
 
 # Check health endpoints
 log_info "Checking service health..."
-for port in 8001 8002 8004; do
+for port in 8001 8004; do
     HEALTH=$(curl -s "http://localhost:$port/healthz" | jq -r '.ok')
     if [ "$HEALTH" = "true" ]; then
         log_pass "Service on port $port is healthy"
@@ -109,7 +108,7 @@ echo "  Exec-sim orders: ${EXEC_ORDERS_BEFORE:-0}"
 log_info "Test 1: Direct NATS message publishing..."
 DIRECT_MSG='{"corr_id":"ci_test_direct_'$(date +%s)'","agent_id":"ci_test","instrument":"AAPL","side":"buy","quantity":100,"order_type":"market","timestamp":"'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'"}'
 
-docker run --rm --network agentic-trading-architecture-full_default \
+docker run --rm --network neo_minimal_default \
     natsio/nats-box:latest \
     nats -s nats://nats:4222 pub decisions.order_intent "$DIRECT_MSG"
 
@@ -213,7 +212,7 @@ fi
 log_info "Test 4: Schema validation with unknown fields..."
 SCHEMA_MSG='{"corr_id":"ci_schema_'$(date +%s)'","agent_id":"ci","instrument":"MSFT","side":"buy","quantity":50,"order_type":"limit","price_limit":300,"timestamp":"'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'","unknown_field1":"test","custom_metadata":{"key":"value"}}'
 
-docker run --rm --network agentic-trading-architecture-full_default \
+docker run --rm --network neo_minimal_default \
     natsio/nats-box:latest \
     nats -s nats://nats:4222 pub decisions.order_intent "$SCHEMA_MSG"
 

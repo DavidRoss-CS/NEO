@@ -1,0 +1,194 @@
+version: "3.9"
+
+services:
+  # Core messaging infrastructure
+  nats:
+    image: nats:2.10
+    command: ["-js", "-m", "8222"]
+    ports: ["4222:4222", "8222:8222"]
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8222/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # NATS stream initialization (runs once)
+  nats-init:
+    build: ./repos/at-nats-init
+    depends_on:
+      - nats
+    environment:
+      - NATS_URL=nats://nats:4222
+      - STREAM_NAME=trading-events
+    restart: "no"
+
+  # Gateway service (webhooks and market data ingestion)
+  gateway:
+    build: ./repos/at-gateway
+    depends_on:
+      - nats-init
+    environment:
+      - NATS_URL=nats://nats:4222
+      - API_KEY_HMAC_SECRET=test-secret
+      - PORT=8001
+      - LOG_LEVEL=INFO
+    ports: ["8001:8001"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # MCP Agent service (trading strategy agent)
+  agent:
+    build: ./repos/at-agent-mcp
+    depends_on:
+      - nats-init
+    environment:
+      - NATS_URL=nats://nats:4222
+      - PORT=8002
+      - LOG_LEVEL=INFO
+      - STRATEGY_TYPE=momentum
+      - RISK_LIMIT=0.02
+    ports: ["8002:8002"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # Meta-agent service (multi-agent orchestration) - SPRINT 2 IMPLEMENTED
+  meta-agent:
+    build: ./repos/at-meta-agent
+    depends_on:
+      - nats-init
+    environment:
+      - NATS_URL=nats://nats:4222
+      - PORT=8003
+      - LOG_LEVEL=INFO
+      - VOTING_STRATEGY=confidence_weighted
+      - MIN_CONFIDENCE=0.7
+    ports: ["8003:8003"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # Execution simulator (trade execution)
+  exec-sim:
+    build: ./repos/at-exec-sim
+    depends_on:
+      - nats-init
+    environment:
+      - NATS_URL=nats://nats:4222
+      - PORT=8004
+      - LOG_LEVEL=INFO
+    ports: ["8004:8004"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # Backtester service (strategy validation) - SPRINT 2 IMPLEMENTED
+  backtester:
+    build: ./repos/at-backtester
+    depends_on:
+      - nats-init
+    environment:
+      - NATS_URL=nats://nats:4222
+      - PORT=8005
+      - LOG_LEVEL=INFO
+    ports: ["8005:8005"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8005/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # Broker adapters service (real trading) - SPRINT 2 IMPLEMENTED
+  broker-adapters:
+    build: ./repos/at-broker-adapters
+    depends_on:
+      - nats-init
+    environment:
+      - NATS_URL=nats://nats:4222
+      - PORT=8006
+      - LOG_LEVEL=INFO
+      - ADAPTER_MODE=paper  # paper, ib, alpaca
+    ports: ["8006:8006"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8006/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # Strategy manager service (dynamic strategy loading)
+  strategy-manager:
+    build: ./repos/at-strategy-manager
+    depends_on:
+      - nats-init
+    environment:
+      - NATS_URL=nats://nats:4222
+      - PORT=8007
+      - LOG_LEVEL=INFO
+      - STRATEGIES_DIR=/app/plugins
+    ports: ["8007:8007"]
+    volumes:
+      - "./repos/at-strategy-manager/at_strategy_manager/plugins:/app/plugins"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8007/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # Audit trail service (compliance) - DOCUMENTED IN SYSTEM OVERVIEW
+  audit-trail:
+    build: ./repos/at-audit-trail
+    depends_on:
+      - nats-init
+    environment:
+      - NATS_URL=nats://nats:4222
+      - NATS_STREAM=trading-events
+      - PORT=8009
+      - LOG_LEVEL=INFO
+    ports: ["8009:8009"]
+    volumes:
+      - "audit-data:/app/audit_logs"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8009/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # Redis for feature store and caching
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    command: redis-server --appendonly yes
+    volumes:
+      - "redis-data:/data"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  redis-data:
+  audit-data:
+
+networks:
+  default:
+    name: neo_production_default

@@ -6,17 +6,20 @@ help:
 	@echo ""
 	@echo "Quick Start:"
 	@echo "  make setup         - Initial setup (create .env, install deps)"
-	@echo "  make up           - Start all services"
+	@echo "  make up           - Start minimal services (development)"
+	@echo "  make up-prod      - Start all services (production)"
 	@echo "  make verify       - Quick verification test"
-	@echo "  make down         - Stop all services"
+	@echo "  make down         - Stop services"
 	@echo ""
 	@echo "Docker Commands:"
-	@echo "  make up           - Start all services"
-	@echo "  make down         - Stop all services"
-	@echo "  make restart      - Restart all services"
-	@echo "  make build        - Build all Docker images"
-	@echo "  make clean        - Stop services and remove volumes"
-	@echo "  make reset        - Full reset (clean + up)"
+	@echo "  make up           - Start minimal services (development)"
+	@echo "  make up-prod      - Start all services (production)"
+	@echo "  make down         - Stop services"
+	@echo "  make down-prod    - Stop production services"
+	@echo "  make build        - Build minimal images"
+	@echo "  make build-prod   - Build all images"
+	@echo "  make clean        - Clean minimal setup"
+	@echo "  make clean-prod   - Clean production setup"
 	@echo ""
 	@echo "Monitoring:"
 	@echo "  make status       - Show service status"
@@ -54,40 +57,65 @@ dev-setup: setup
 	@echo "✅ Development environment ready!"
 
 # Docker commands
+# Minimal services (development)
 up:
-	@echo "Starting services..."
-	@docker compose -f docker-compose.dev.yml up -d
+	@echo "Starting minimal services (development)..."
+	@docker-compose -f docker-compose.minimal.yml up -d
 	@echo "Waiting for services to start..."
 	@sleep 5
 	@echo "Services started. Checking health..."
 	@make health-quiet || true
 
 down:
-	@echo "Stopping services..."
-	@docker compose -f docker-compose.dev.yml down
+	@echo "Stopping minimal services..."
+	@docker-compose -f docker-compose.minimal.yml down
+
+# Production services (full system)
+up-prod:
+	@echo "Starting production services (full system)..."
+	@docker-compose -f docker-compose.production.yml up -d
+	@echo "Waiting for services to start..."
+	@sleep 10
+	@echo "All services started. Checking health..."
+	@make health-prod-quiet || true
+
+down-prod:
+	@echo "Stopping production services..."
+	@docker-compose -f docker-compose.production.yml down
 
 restart: down up
 
 build:
-	@echo "Building Docker images..."
-	@docker compose -f docker-compose.dev.yml build
+	@echo "Building minimal Docker images..."
+	@docker-compose -f docker-compose.minimal.yml build
+
+build-prod:
+	@echo "Building all Docker images..."
+	@docker-compose -f docker-compose.production.yml build
 
 clean:
-	@echo "Cleaning up (removing volumes and temp files)..."
-	@docker compose -f docker-compose.dev.yml down -v
+	@echo "Cleaning minimal setup..."
+	@docker-compose -f docker-compose.minimal.yml down -v
 	@find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	@find . -type f -name "*.pyc" -delete 2>/dev/null || true
-	@echo "✅ Cleanup complete!"
+	@echo "✅ Minimal cleanup complete!"
+
+clean-prod:
+	@echo "Cleaning production setup..."
+	@docker-compose -f docker-compose.production.yml down -v
+	@find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+	@find . -type f -name "*.pyc" -delete 2>/dev/null || true
+	@echo "✅ Production cleanup complete!"
 
 reset: clean up
 
 # Monitoring commands
 status:
 	@echo "=== Service Status ==="
-	@docker compose -f docker-compose.dev.yml ps
+	@docker-compose -f docker-compose.minimal.yml ps
 
 logs:
-	@docker compose -f docker-compose.dev.yml logs -f --tail=100
+	@docker-compose -f docker-compose.minimal.yml logs -f --tail=100
 
 watch: logs
 
@@ -104,8 +132,33 @@ health:
 
 health-quiet:
 	@curl -s http://localhost:8001/healthz | jq -r '.ok' >/dev/null 2>&1 || true
-	@curl -s http://localhost:8002/healthz | jq -r '.ok' >/dev/null 2>&1 || true
 	@curl -s http://localhost:8004/healthz | jq -r '.ok' >/dev/null 2>&1 || true
+
+health-prod:
+	@echo "=== Production Service Health Check ==="
+	@echo -n "Gateway (8001): "
+	@curl -s http://localhost:8001/healthz | jq -r '.ok' 2>/dev/null && echo " ✅" || echo " ❌"
+	@echo -n "Agent (8002): "
+	@curl -s http://localhost:8002/healthz | jq -r '.ok' 2>/dev/null && echo " ✅" || echo " ❌"
+	@echo -n "Meta-Agent (8003): "
+	@curl -s http://localhost:8003/healthz | jq -r '.ok' 2>/dev/null && echo " ✅" || echo " ❌"
+	@echo -n "Exec-Sim (8004): "
+	@curl -s http://localhost:8004/healthz | jq -r '.ok' 2>/dev/null && echo " ✅" || echo " ❌"
+	@echo -n "Backtester (8005): "
+	@curl -s http://localhost:8005/healthz | jq -r '.ok' 2>/dev/null && echo " ✅" || echo " ❌"
+	@echo -n "Broker-Adapters (8006): "
+	@curl -s http://localhost:8006/healthz | jq -r '.ok' 2>/dev/null && echo " ✅" || echo " ❌"
+	@echo -n "Audit-Trail (8009): "
+	@curl -s http://localhost:8009/healthz | jq -r '.ok' 2>/dev/null && echo " ✅" || echo " ❌"
+
+health-prod-quiet:
+	@curl -s http://localhost:8001/healthz | jq -r '.ok' >/dev/null 2>&1 || true
+	@curl -s http://localhost:8002/healthz | jq -r '.ok' >/dev/null 2>&1 || true
+	@curl -s http://localhost:8003/healthz | jq -r '.ok' >/dev/null 2>&1 || true
+	@curl -s http://localhost:8004/healthz | jq -r '.ok' >/dev/null 2>&1 || true
+	@curl -s http://localhost:8005/healthz | jq -r '.ok' >/dev/null 2>&1 || true
+	@curl -s http://localhost:8006/healthz | jq -r '.ok' >/dev/null 2>&1 || true
+	@curl -s http://localhost:8009/healthz | jq -r '.ok' >/dev/null 2>&1 || true
 
 metrics:
 	@echo "=== Key Metrics ==="

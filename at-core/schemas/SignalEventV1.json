@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neo.at-core/schemas/SignalEventV1.json",
+  "title": "SignalEventV1",
+  "type": "object",
+  "required": [
+    "schema_version", "intent_id", "correlation_id", "source",
+    "instrument", "type", "strength", "payload", "ts_iso"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "intent_id": {"type": "string", "minLength": 8},
+    "correlation_id": {"type": "string", "minLength": 8},
+    "source": {"type": "string", "enum": ["tradingview", "webhook", "backtest", "manual"]},
+    "instrument": {"type": "string", "pattern": "^[A-Z0-9_:/.!-]{2,32}$"},
+    "type": {"type": "string", "enum": ["momentum", "breakout", "indicator", "sentiment", "custom"]},
+    "strength": {"type": "number", "minimum": 0, "maximum": 1},
+    "priority": {"type": "string", "enum": ["high", "standard"], "default": "standard"},
+    "payload": {"type": "object", "additionalProperties": true},
+    "ts_iso": {"type": "string", "format": "date-time"}
+  },
+  "additionalProperties": false
+}

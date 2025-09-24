@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neo.at-core/schemas/AgentOutputV1.json",
+  "title": "AgentOutputV1",
+  "type": "object",
+  "required": [
+    "schema_version", "intent_id", "agent", "confidence", "summary",
+    "recommendation", "rationale", "risk", "metadata", "ts_iso"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "intent_id": {"type": "string"},
+    "agent": {"type": "string"},
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "summary": {"type": "string", "minLength": 1},
+    "recommendation": {
+      "type": "object",
+      "required": ["action"],
+      "properties": {
+        "action": {"type": "string", "enum": ["none", "analyze", "alert", "paper_order", "live_order"]},
+        "orders": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/OrderIntentEmbed"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "rationale": {"type": "string"},
+    "risk": {
+      "type": "object",
+      "properties": {
+        "max_drawdown_pct": {"type": "number"},
+        "stop_loss": {"type": "number"},
+        "take_profit": {"type": "number"}
+      },
+      "additionalProperties": true
+    },
+    "metadata": {"type": "object", "additionalProperties": true},
+    "ts_iso": {"type": "string", "format": "date-time"}
+  },
+  "definitions": {
+    "OrderIntentEmbed": {
+      "type": "object",
+      "required": ["instrument", "side", "qty", "type"],
+      "properties": {
+        "instrument": {"type": "string"},
+        "side": {"type": "string", "enum": ["buy", "sell"]},
+        "qty": {"type": "number", "exclusiveMinimum": 0},
+        "type": {"type": "string", "enum": ["market", "limit"]},
+        "limit_price": {"type": "number"},
+        "time_in_force": {"type": "string", "enum": ["day", "gtc", "ioc", "fok"]}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

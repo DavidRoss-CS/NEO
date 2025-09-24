@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neo.at-core/schemas/OrderIntentV1.json",
+  "title": "OrderIntentV1",
+  "type": "object",
+  "required": [
+    "schema_version", "order_id", "intent_id", "account", "instrument",
+    "side", "qty", "type", "time_in_force", "ts_iso"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "order_id": {"type": "string", "minLength": 1},
+    "intent_id": {"type": "string", "minLength": 1},
+    "account": {"type": "string", "minLength": 1},
+    "instrument": {"type": "string", "minLength": 1},
+    "side": {"type": "string", "enum": ["buy", "sell"]},
+    "qty": {"type": "number", "exclusiveMinimum": 0},
+    "type": {"type": "string", "enum": ["market", "limit"]},
+    "limit_price": {"type": "number", "minimum": 0},
+    "stop_loss": {"type": "number", "minimum": 0},
+    "take_profit": {"type": "number", "minimum": 0},
+    "time_in_force": {"type": "string", "enum": ["day", "gtc", "ioc", "fok"]},
+    "ts_iso": {"type": "string", "format": "date-time"}
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,137 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agentic-trading.com/schemas/backtest/results/v1",
+  "title": "Backtest Results Event",
+  "description": "Results from completed backtest execution",
+  "type": "object",
+  "required": [
+    "test_id",
+    "status",
+    "config",
+    "start_time"
+  ],
+  "properties": {
+    "test_id": {
+      "type": "string",
+      "description": "Unique identifier for the backtest"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "running", "completed", "failed", "cancelled"],
+      "description": "Current status of the backtest"
+    },
+    "config": {
+      "type": "object",
+      "description": "Backtest configuration",
+      "required": ["start_date", "end_date", "symbols", "initial_balance", "strategies"],
+      "properties": {
+        "start_date": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Start date for backtest"
+        },
+        "end_date": {
+          "type": "string",
+          "format": "date-time",
+          "description": "End date for backtest"
+        },
+        "symbols": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "List of symbols to test"
+        },
+        "initial_balance": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Initial balance for backtest"
+        },
+        "strategies": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "List of strategies to test"
+        },
+        "seed": {
+          "type": "integer",
+          "description": "Random seed for reproducibility"
+        },
+        "replay_speed": {
+          "type": "number",
+          "minimum": 0.1,
+          "description": "Replay speed multiplier"
+        },
+        "commission": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Commission rate"
+        },
+        "slippage": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Slippage rate"
+        }
+      }
+    },
+    "start_time": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when backtest started"
+    },
+    "end_time": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when backtest completed"
+    },
+    "total_return": {
+      "type": "number",
+      "description": "Total return as decimal (0.1 = 10%)"
+    },
+    "sharpe_ratio": {
+      "type": "number",
+      "description": "Sharpe ratio of the strategy"
+    },
+    "max_drawdown": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Maximum drawdown as decimal"
+    },
+    "win_rate": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Win rate as decimal"
+    },
+    "total_trades": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total number of trades executed"
+    },
+    "final_balance": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Final balance after backtest"
+    },
+    "error_message": {
+      "type": "string",
+      "description": "Error message if backtest failed"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional backtest metadata",
+      "properties": {
+        "events_processed": {
+          "type": "integer",
+          "description": "Number of market events processed"
+        },
+        "execution_time_seconds": {
+          "type": "number",
+          "description": "Total execution time in seconds"
+        },
+        "memory_usage_mb": {
+          "type": "number",
+          "description": "Peak memory usage in MB"
+        }
+      }
+    }
+  }
+}

@@ -4,18 +4,50 @@ services:
     image: nats:2.10
     command: ["-js","-m","8222"]
     ports: ["4222:4222","8222:8222"]
+  nats-init:
+    build: ./repos/at-nats-init
+    depends_on:
+      - nats
+    environment:
+      - NATS_URL=nats://nats:4222
+      - STREAM_NAME=trading-events
+    restart: "no"
   gateway:
     build: ./repos/at-gateway
-    environment: [NATS_URL=nats://nats:4222]
-    ports: ["8081:8081"]
+    environment:
+      - NATS_URL=nats://nats:4222
+      - API_KEY_HMAC_SECRET=test-secret
+    ports: ["8001:8001"]
   agent:
     build: ./repos/at-agent-mcp
     environment: [NATS_URL=nats://nats:4222]
-    ports: ["8082:8082"]
+    ports: ["8002:8002"]
+  meta:
+    build: ./repos/at-meta-agent
+    environment: [NATS_URL=nats://nats:4222]
+    ports: ["8003:8003"]
   exec:
     build: ./repos/at-exec-sim
     environment: [NATS_URL=nats://nats:4222]
-    ports: ["8083:8083"]
+    ports: ["8004:8004"]
+  backtester:
+    build: ./repos/at-backtester
+    environment: [NATS_URL=nats://nats:4222]
+    ports: ["8005:8005"]
+  broker:
+    build: ./repos/at-broker-adapters
+    environment: [NATS_URL=nats://nats:4222]
+    ports: ["8006:8006"]
+  strategy:
+    build: ./repos/at-strategy-manager
+    environment: [NATS_URL=nats://nats:4222, STRATEGIES_DIR=/app/plugins]
+    ports: ["8007:8007"]
+    volumes: ["./repos/at-strategy-manager/at_strategy_manager/plugins:/app/plugins"]
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    command: redis-server --appendonly yes
+    volumes: ["redis-data:/data"]
   prom:
     image: prom/prometheus
     volumes: ["./repos/at-ops/prom/prometheus.yml:/etc/prometheus/prometheus.yml"]
@@ -23,3 +55,39 @@ services:
   grafana:
     image: grafana/grafana
     ports: ["3000:3000"]
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+    volumes:
+      - "./repos/at-observability/grafana-provisioning:/etc/grafana/provisioning"
+      - "./repos/at-observability/dashboards:/etc/grafana/provisioning/dashboards"
+  chaos:
+    build: ./repos/at-chaos-tests
+    depends_on:
+      - nats
+      - gateway
+      - agent
+    environment:
+      - NATS_URL=nats://nats:4222
+      - CHAOS_MODE=safe
+      - LOG_LEVEL=INFO
+    ports: ["8008:8008"]
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+  audit:
+    build: ./repos/at-audit-trail
+    depends_on:
+      - nats-init
+      - nats
+    environment:
+      - NATS_URL=nats://nats:4222
+      - NATS_STREAM=trading-events
+      - LOG_LEVEL=INFO
+    ports: ["8009:8009"]
+    volumes:
+      - "audit-data:/app/audit_logs"
+
+volumes:
+  redis-data:
+  audit-data:

@@ -1,0 +1,85 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agentic-trading.com/schemas/risk/violations/v1",
+  "title": "Risk Violation Event",
+  "description": "Risk violation detected by portfolio risk engine",
+  "type": "object",
+  "required": [
+    "violation_type",
+    "message",
+    "severity",
+    "timestamp",
+    "metadata"
+  ],
+  "properties": {
+    "violation_type": {
+      "type": "string",
+      "enum": [
+        "max_daily_loss",
+        "position_limit",
+        "correlation_limit",
+        "concentration_risk",
+        "velocity_limit",
+        "exposure_limit"
+      ],
+      "description": "Type of risk violation"
+    },
+    "symbol": {
+      "type": "string",
+      "description": "Trading symbol (if violation is symbol-specific)",
+      "examples": ["AAPL", "MSFT", "GOOGL"]
+    },
+    "message": {
+      "type": "string",
+      "description": "Human-readable violation message"
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["warning", "critical", "emergency"],
+      "description": "Severity level of the violation"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of violation"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional violation metadata",
+      "properties": {
+        "limit": {
+          "type": "number",
+          "description": "The limit that was exceeded"
+        },
+        "current_value": {
+          "type": "number",
+          "description": "Current value that exceeded the limit"
+        },
+        "daily_loss": {
+          "type": "number",
+          "description": "Current daily loss amount"
+        },
+        "total_exposure": {
+          "type": "number",
+          "description": "Total portfolio exposure"
+        },
+        "concentration": {
+          "type": "number",
+          "description": "Position concentration percentage"
+        },
+        "bucket": {
+          "type": "string",
+          "description": "Correlation bucket name"
+        },
+        "order_count": {
+          "type": "integer",
+          "description": "Current order count for velocity violations"
+        },
+        "position_count": {
+          "type": "integer",
+          "description": "Number of positions affected"
+        }
+      }
+    }
+  }
+}

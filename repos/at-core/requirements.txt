@@ -1,0 +1,15 @@
+# Core dependencies for shared libraries
+jsonschema
+pydantic
+
+# Event processing
+python-dateutil
+
+# Feature store dependencies
+redis[hiredis]
+pandas
+numpy
+structlog
+
+# Development and testing
+pytest

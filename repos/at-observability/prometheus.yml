@@ -48,44 +48,20 @@ scrape_configs:
         regex: '([^:]+)(?::\d+)?'
         replacement: '${1}'
 
-  # Agent services
-  - job_name: 'agents'
+  # Agent MCP service
+  - job_name: 'agent-mcp'
     static_configs:
-      - targets:
-          - 'at-agent-momentum:9001'
-          - 'at-agent-risk:9002'
-          - 'at-agent-sentiment:9003'
-          - 'at-agent-correlation:9004'
+      - targets: ['at-agent-mcp:8002']
         labels:
+          service: 'at-agent-mcp'
           component: 'agent'
     metrics_path: '/metrics'
+    scrape_timeout: 10s
     relabel_configs:
-      - source_labels: [__address__]
-        regex: 'at-agent-(.+):\d+'
-        target_label: agent_type
-        replacement: '${1}'
       - source_labels: [__address__]
         target_label: instance
         regex: '([^:]+)(?::\d+)?'
         replacement: '${1}'
-
-  # Orchestrator service
-  - job_name: 'orchestrator'
-    static_configs:
-      - targets: ['at-orchestrator:9090']
-        labels:
-          service: 'at-orchestrator'
-          component: 'coordinator'
-    metrics_path: '/metrics'
-
-  # MCP servers
-  - job_name: 'mcp'
-    static_configs:
-      - targets: ['at-mcp:8002']
-        labels:
-          service: 'at-mcp'
-          component: 'tools'
-    metrics_path: '/metrics'
 
   # Execution simulator
   - job_name: 'execution'

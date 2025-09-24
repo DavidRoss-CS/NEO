@@ -1,0 +1,212 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.trading.example.com/executions.reconcile.v1.json",
+  "title": "Execution Reconciliation",
+  "description": "Periodic reconciliation report for strategy performance and position status.",
+  "version": "1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "reconcile_id",
+    "timestamp",
+    "strategy_id",
+    "agent_id",
+    "period_start",
+    "period_end",
+    "positions",
+    "pnl_summary"
+  ],
+  "properties": {
+    "reconcile_id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9_-]+$",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Unique identifier for this reconciliation."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when reconciliation was generated."
+    },
+    "strategy_id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9_-]+$",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Strategy being reconciled."
+    },
+    "agent_id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9_-]+$",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Agent instance being reconciled."
+    },
+    "period_start": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Start of reconciliation period."
+    },
+    "period_end": {
+      "type": "string",
+      "format": "date-time",
+      "description": "End of reconciliation period."
+    },
+    "positions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["instrument", "quantity", "avg_price", "market_value"],
+        "properties": {
+          "instrument": {
+            "type": "string",
+            "pattern": "^[A-Z0-9]+([/_-]?[A-Z0-9]+)?$"
+          },
+          "quantity": {
+            "type": "number",
+            "description": "Current position size (positive for long, negative for short)."
+          },
+          "avg_price": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Average entry price for this position."
+          },
+          "market_price": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Current market price."
+          },
+          "market_value": {
+            "type": "number",
+            "description": "Current market value of position."
+          },
+          "unrealized_pnl": {
+            "type": "number",
+            "description": "Unrealized profit/loss for this position."
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "Current positions held by strategy."
+    },
+    "pnl_summary": {
+      "type": "object",
+      "required": ["realized_pnl", "unrealized_pnl", "total_pnl"],
+      "properties": {
+        "realized_pnl": {
+          "type": "number",
+          "description": "Total realized P&L for the period."
+        },
+        "unrealized_pnl": {
+          "type": "number",
+          "description": "Total unrealized P&L as of reconciliation time."
+        },
+        "total_pnl": {
+          "type": "number",
+          "description": "Sum of realized and unrealized P&L."
+        },
+        "gross_pnl": {
+          "type": "number",
+          "description": "P&L before fees and commissions."
+        },
+        "total_fees": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Total fees and commissions for the period."
+        },
+        "trade_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of completed trades in period."
+        },
+        "win_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Percentage of profitable trades."
+        },
+        "sharpe_ratio": {
+          "type": "number",
+          "description": "Risk-adjusted return metric."
+        },
+        "max_drawdown": {
+          "type": "number",
+          "maximum": 0,
+          "description": "Maximum peak-to-trough decline."
+        }
+      },
+      "additionalProperties": false
+    },
+    "risk_metrics": {
+      "type": "object",
+      "properties": {
+        "var_95": {
+          "type": "number",
+          "description": "Value at Risk (95% confidence level)."
+        },
+        "portfolio_beta": {
+          "type": "number",
+          "description": "Portfolio beta relative to market."
+        },
+        "concentration_risk": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Position concentration score (0-1)."
+        }
+      },
+      "additionalProperties": false
+    },
+    "execution_venue": {
+      "type": "string",
+      "enum": ["simulation", "paper", "live", "backtest"],
+      "description": "Execution environment for this reconciliation."
+    },
+    "fills_processed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of fill IDs included in this reconciliation."
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional reconciliation metadata.",
+      "additionalProperties": true
+    }
+  },
+  "examples": [
+    {
+      "reconcile_id": "recon_daily_20240115",
+      "timestamp": "2024-01-15T18:00:00.000Z",
+      "strategy_id": "momentum_breakout_v1",
+      "agent_id": "agent_prod_001",
+      "period_start": "2024-01-15T00:00:00.000Z",
+      "period_end": "2024-01-15T18:00:00.000Z",
+      "positions": [
+        {
+          "instrument": "EURUSD",
+          "quantity": 50000,
+          "avg_price": 1.08950,
+          "market_price": 1.09100,
+          "market_value": 54550.00,
+          "unrealized_pnl": 75.00
+        }
+      ],
+      "pnl_summary": {
+        "realized_pnl": 150.25,
+        "unrealized_pnl": 75.00,
+        "total_pnl": 225.25,
+        "gross_pnl": 227.50,
+        "total_fees": 2.25,
+        "trade_count": 3,
+        "win_rate": 0.667,
+        "sharpe_ratio": 1.85,
+        "max_drawdown": -25.50
+      },
+      "execution_venue": "simulation",
+      "fills_processed": ["fill_ghi789", "fill_jkl012", "fill_mno345"]
+    }
+  ]
+}

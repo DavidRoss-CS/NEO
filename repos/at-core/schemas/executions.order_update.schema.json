@@ -1,0 +1,99 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agentic-trading.com/schemas/executions/order_update/v1",
+  "title": "Order Update Event",
+  "description": "Order status update from broker adapter",
+  "type": "object",
+  "required": [
+    "event_type",
+    "order_id",
+    "symbol",
+    "side",
+    "order_type",
+    "quantity",
+    "status",
+    "timestamp"
+  ],
+  "properties": {
+    "event_type": {
+      "type": "string",
+      "enum": ["submitted", "filled", "partially_filled", "cancelled", "rejected"],
+      "description": "Type of order event"
+    },
+    "order_id": {
+      "type": "string",
+      "description": "Internal order ID"
+    },
+    "symbol": {
+      "type": "string",
+      "description": "Trading symbol",
+      "examples": ["AAPL", "MSFT", "GOOGL"]
+    },
+    "side": {
+      "type": "string",
+      "enum": ["buy", "sell"],
+      "description": "Order side"
+    },
+    "order_type": {
+      "type": "string",
+      "enum": ["market", "limit", "stop", "stop_limit"],
+      "description": "Order type"
+    },
+    "quantity": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Order quantity"
+    },
+    "price": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Order price (null for market orders)"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "submitted", "partially_filled", "filled", "cancelled", "rejected", "expired"],
+      "description": "Current order status"
+    },
+    "broker_order_id": {
+      "type": "string",
+      "description": "Broker's order ID"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of the event"
+    },
+    "broker": {
+      "type": "string",
+      "description": "Name of the broker adapter"
+    },
+    "filled_quantity": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Quantity filled so far"
+    },
+    "remaining_quantity": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Remaining quantity to fill"
+    },
+    "average_fill_price": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Average fill price"
+    },
+    "commission": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Commission charged"
+    },
+    "reject_reason": {
+      "type": "string",
+      "description": "Reason for rejection (if status is rejected)"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional order metadata"
+    }
+  }
+}

@@ -1,0 +1,100 @@
+version: "3.9"
+services:
+  nats:
+    image: nats:2.10
+    command: ["-js", "-m", "8222"]
+    ports: ["4222:4222", "8222:8222"]
+    healthcheck:
+      test: ["CMD", "nats", "server", "check"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  at-core:
+    build: ./repos/at-core
+    volumes:
+      - ./repos/at-core/schemas:/app/schemas:ro
+
+  gateway:
+    build: ./repos/at-gateway
+    environment:
+      - NATS_URL=nats://nats:4222
+      - API_KEY_HMAC_SECRET=test-secret-key
+      - LOG_LEVEL=DEBUG
+    ports: ["8001:8001"]
+    depends_on:
+      - nats
+      - at-core
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  agent:
+    build: ./repos/at-agent-mcp
+    environment:
+      - NATS_URL=nats://nats:4222
+      - STRATEGY_TYPE=momentum
+      - CONFIDENCE_THRESHOLD=0.6
+      - LOG_LEVEL=DEBUG
+    ports: ["8002:8002"]
+    depends_on:
+      - nats
+      - gateway
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  exec:
+    build: ./repos/at-exec-sim
+    environment:
+      - NATS_URL=nats://nats:4222
+      - LOG_LEVEL=DEBUG
+    ports: ["8004:8004"]
+    depends_on:
+      - nats
+      - agent
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  integration-tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.integration-tests
+    environment:
+      - GATEWAY_URL=http://gateway:8001
+      - AGENT_URL=http://agent:8002
+      - EXEC_URL=http://exec:8004
+      - NATS_URL=nats://nats:4222
+    depends_on:
+      - gateway
+      - agent
+      - exec
+    volumes:
+      - ./tests:/tests
+    command: ["python", "-m", "pytest", "/tests/integration/", "-v"]
+
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./repos/at-observability/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports: ["9090:9090"]
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+
+  grafana:
+    image: grafana/grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    ports: ["3000:3000"]
+    volumes:
+      - ./repos/at-observability/grafana_dashboards:/var/lib/grafana/dashboards

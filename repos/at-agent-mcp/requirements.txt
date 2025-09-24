@@ -1,0 +1,22 @@
+# Core dependencies
+fastapi
+uvicorn[standard]
+structlog
+
+# NATS messaging
+nats-py
+
+# Prometheus metrics
+prometheus-client
+
+# Schema validation
+jsonschema
+pydantic
+
+# Trading strategies
+numpy
+pandas
+
+# Development and testing
+pytest
+httpx

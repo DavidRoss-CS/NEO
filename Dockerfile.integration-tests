@@ -1,0 +1,12 @@
+FROM python:3.12-slim
+
+WORKDIR /tests
+
+# Install test dependencies
+RUN pip install pytest pytest-asyncio httpx nats-py structlog
+
+# Copy test files
+COPY tests/ ./
+
+# Default command
+CMD ["python", "-m", "pytest", "integration/", "-v"]

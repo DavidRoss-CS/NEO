@@ -17,6 +17,10 @@ from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTEN
 import nats
 from nats.errors import ConnectionClosedError, TimeoutError as NatsTimeoutError
 
+# NEO schema registry integration
+from at_core.validators import validate_signal_event, ValidationError
+from at_core.schemas import load_schema
+
 # Configure structured logging
 logger = structlog.get_logger()
 
@@ -32,6 +36,11 @@ SERVICE_NAME = os.getenv("SERVICE_NAME", "at-gateway")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 MAX_PAYLOAD_SIZE = 1024 * 1024  # 1MB
 
+# Feature flags for v1.0 enhancements
+FF_TV_SLICE = os.getenv("FF_TV_SLICE", "false").lower() == "true"
+FF_ENHANCED_LOGGING = os.getenv("FF_ENHANCED_LOGGING", "false").lower() == "true"
+FF_CIRCUIT_BREAKER = os.getenv("FF_CIRCUIT_BREAKER", "true").lower() == "true"
+
 # Prometheus metrics
 webhooks_received = Counter('gateway_webhooks_received_total', 'Total webhooks received', ['source', 'status'])
 webhook_duration = Histogram('gateway_webhook_duration_seconds', 'Webhook processing duration', ['status_class'])
@@ -42,6 +51,12 @@ rate_limit_exceeded = Counter('gateway_rate_limit_exceeded_total', 'Rate limit v
 idempotency_conflicts = Counter('gateway_idempotency_conflicts_total', 'Idempotency key conflicts')
 backpressure_engaged = Counter('gateway_backpressure_total', 'Backpressure events')
 maintenance_mode_requests = Counter('gateway_maintenance_mode_total', 'Requests during maintenance')
+
+# v1.0 Enhanced metrics
+schema_validation_errors = Counter('gateway_schema_validation_errors_total', 'Schema validation errors', ['schema_type', 'field'])
+signal_categorization_total = Counter('gateway_signal_categorization_total', 'Signal categorization', ['type', 'priority'])
+feature_flag_evaluations = Counter('gateway_feature_flag_evaluations_total', 'Feature flag evaluations', ['flag', 'result'])
+enhanced_processing_duration = Histogram('gateway_enhanced_processing_seconds', 'Enhanced processing duration')
 
 app = FastAPI(
     title="at-gateway",
@@ -66,6 +81,7 @@ idempotency_cache: Dict[str, Dict] = {}
 start_time = time.time()
 
 class MarketSignal(BaseModel):
+    """Legacy market signal for backward compatibility"""
     instrument: str = Field(..., min_length=1, max_length=20)
     price: float | str
     signal: str = Field(..., min_length=1, max_length=50)
@@ -81,6 +97,63 @@ class MarketSignal(BaseModel):
             except ValueError:
                 raise ValueError(f"Invalid price: {v}")
         return v
+
+def categorize_signal_type(signal: str, metadata: Optional[Dict] = None) -> str:
+    """Categorize signal type from TradingView or custom signals"""
+    signal_lower = signal.lower()
+
+    # Momentum indicators
+    if any(term in signal_lower for term in ['rsi', 'macd', 'momentum', 'stoch']):
+        return 'momentum'
+
+    # Breakout patterns
+    if any(term in signal_lower for term in ['breakout', 'break', 'support', 'resistance']):
+        return 'breakout'
+
+    # Technical indicators
+    if any(term in signal_lower for term in ['ema', 'sma', 'bollinger', 'adx']):
+        return 'indicator'
+
+    # Sentiment based
+    if any(term in signal_lower for term in ['sentiment', 'fear', 'greed', 'vix']):
+        return 'sentiment'
+
+    # Default to custom
+    return 'custom'
+
+def determine_signal_priority(strength: float, signal_type: str, metadata: Optional[Dict] = None) -> str:
+    """Determine signal priority based on strength and context"""
+    # High priority thresholds
+    if strength >= 0.8:
+        return 'high'
+
+    # Context-based priority
+    if signal_type in ['breakout', 'momentum'] and strength >= 0.6:
+        return 'high'
+
+    return 'std'
+
+def create_signal_event_v1(signal: MarketSignal, source: str, corr_id: str) -> Dict[str, Any]:
+    """Convert legacy MarketSignal to SignalEventV1 format"""
+    signal_type = categorize_signal_type(signal.signal, signal.metadata)
+    priority = determine_signal_priority(signal.strength, signal_type, signal.metadata)
+
+    return {
+        "schema_version": "1.0.0",
+        "intent_id": f"{source}_{uuid.uuid4().hex[:8]}",
+        "correlation_id": corr_id,
+        "source": source,
+        "instrument": signal.instrument.upper(),
+        "type": signal_type,
+        "strength": signal.strength,
+        "payload": {
+            "price": float(signal.price),
+            "signal": signal.signal,
+            "metadata": signal.metadata or {},
+            "priority": priority
+        },
+        "ts_iso": signal.timestamp or datetime.now(timezone.utc).isoformat()
+    }
 
 @app.middleware("http")
 async def request_size_limit(request: Request, call_next):
@@ -232,11 +305,19 @@ async def startup_event():
         nats_client = await nats.connect(NATS_URL)
         js_client = nats_client.jetstream()
 
-        # Create stream if it doesn't exist
+        # Create stream if it doesn't exist with v1.0 subjects
         try:
             await js_client.add_stream(
                 name=NATS_STREAM,
-                subjects=["signals.*"],
+                subjects=[
+                    "signals.*",
+                    "intents.*",
+                    "decisions.*",
+                    "outputs.*",
+                    "executions.*",
+                    "audit.*",
+                    "dlq.*"
+                ],
                 retention="limits",
                 max_msgs=1000000,
                 max_age=7 * 24 * 3600,  # 7 days
@@ -394,6 +475,32 @@ async def process_webhook(
         )
 
     try:
+        # Feature flag: Use enhanced processing if enabled
+        if FF_TV_SLICE:
+            feature_flag_evaluations.labels(flag='FF_TV_SLICE', result='enabled').inc()
+            return await process_webhook_enhanced(request, body, source, corr_id, idempotency_key)
+        else:
+            feature_flag_evaluations.labels(flag='FF_TV_SLICE', result='disabled').inc()
+            return await process_webhook_legacy(request, body, source, corr_id, idempotency_key)
+
+    except Exception as e:
+        logger.error(
+            "Webhook processing failed",
+            corr_id=corr_id,
+            source=source,
+            error=str(e)
+        )
+        raise
+
+async def process_webhook_legacy(
+    request: Request,
+    body: MarketSignal,
+    source: str,
+    corr_id: str,
+    idempotency_key: Optional[str]
+) -> Dict:
+    """Legacy webhook processing for backward compatibility"""
+    try:
         # Create raw signal event
         raw_signal = {
             "corr_id": corr_id,
@@ -412,7 +519,7 @@ async def process_webhook(
             }
         )
 
-        # Normalize signal
+        # Normalize signal (legacy format)
         normalized_signal = {
             "corr_id": corr_id,
             "timestamp": body.timestamp or datetime.now(timezone.utc).isoformat(),
@@ -434,26 +541,202 @@ async def process_webhook(
             }
         )
 
-        # Log success
         logger.info(
-            "Webhook processed",
+            "Legacy webhook processed",
             corr_id=corr_id,
             source=source,
             instrument=body.instrument,
             signal=body.signal
         )
 
-        # Update metrics
         webhooks_received.labels(source=source, status="success").inc()
 
-        # Cache response for idempotency
         response = {
             "status": "accepted",
             "corr_id": corr_id,
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "processing_mode": "legacy"
         }
 
-        if idempotency_key:
+        return response
+
+    except Exception as e:
+        normalization_errors.labels(source=source).inc()
+        logger.error(
+            "Legacy webhook processing failed",
+            corr_id=corr_id,
+            error=str(e),
+            source=source
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="GW-009: Legacy processing failed"
+        )
+
+async def process_webhook_enhanced(
+    request: Request,
+    body: MarketSignal,
+    source: str,
+    corr_id: str,
+    idempotency_key: Optional[str]
+) -> Dict:
+    """Enhanced webhook processing with v1.0 schema validation"""
+    processing_start = time.time()
+
+    try:
+        # Convert to SignalEventV1 format
+        signal_event = create_signal_event_v1(body, source, corr_id)
+
+        # Validate against schema
+        try:
+            validate_signal_event(signal_event)
+            if FF_ENHANCED_LOGGING:
+                logger.debug(
+                    "Schema validation passed",
+                    corr_id=corr_id,
+                    schema_version=signal_event["schema_version"]
+                )
+        except ValidationError as ve:
+            schema_validation_errors.labels(
+                schema_type='SignalEventV1',
+                field=ve.field_name if hasattr(ve, 'field_name') else 'unknown'
+            ).inc()
+            logger.error(
+                "Schema validation failed",
+                corr_id=corr_id,
+                validation_error=str(ve),
+                payload_snippet=str(signal_event)[:200]
+            )
+            raise HTTPException(
+                status_code=400,
+                detail=f"GW-012: Schema validation failed: {str(ve)}"
+            )
+
+        # Create raw signal event
+        raw_signal = {
+            "corr_id": corr_id,
+            "source": source,
+            "received_at": datetime.now(timezone.utc).isoformat(),
+            "payload": body.dict(),
+            "schema_version": "1.0.0"
+        }
+
+        # Publish raw signal
+        await js_client.publish(
+            "signals.raw",
+            json.dumps(raw_signal).encode(),
+            headers={
+                "Corr-ID": corr_id,
+                "Source": source,
+                "Schema-Version": "1.0.0"
+            }
+        )
+
+        # Enhanced subject routing with hierarchy
+        signal_type = signal_event["type"]
+        priority = signal_event["payload"]["priority"]
+        instrument = signal_event["instrument"]
+
+        enhanced_subject = f"signals.normalized.{priority}.{instrument}.{signal_type}"
+
+        # Track categorization metrics
+        signal_categorization_total.labels(type=signal_type, priority=priority).inc()
+
+        # Publish enhanced normalized signal
+        await js_client.publish(
+            enhanced_subject,
+            json.dumps(signal_event).encode(),
+            headers={
+                "Corr-ID": corr_id,
+                "Source": source,
+                "Instrument": instrument,
+                "Signal-Type": signal_type,
+                "Priority": priority,
+                "Schema-Version": "1.0.0",
+                "Nats-Msg-Id": f"{corr_id}_{int(time.time())}"
+            }
+        )
+
+        processing_duration = time.time() - processing_start
+        enhanced_processing_duration.observe(processing_duration)
+
+        logger.info(
+            "Enhanced webhook processed",
+            corr_id=corr_id,
+            source=source,
+            instrument=instrument,
+            signal_type=signal_type,
+            priority=priority,
+            subject=enhanced_subject,
+            processing_duration_ms=processing_duration * 1000
+        )
+
+        webhooks_received.labels(source=source, status="success").inc()
+
+        response = {
+            "status": "accepted",
+            "corr_id": corr_id,
+            "intent_id": signal_event["intent_id"],
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "processing_mode": "enhanced",
+            "schema_version": "1.0.0",
+            "signal_classification": {
+                "type": signal_type,
+                "priority": priority,
+                "subject": enhanced_subject
+            }
+        }
+
+        return response
+
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions
+    except Exception as e:
+        normalization_errors.labels(source=source).inc()
+        enhanced_processing_duration.observe(time.time() - processing_start)
+        logger.error(
+            "Enhanced webhook processing failed",
+            corr_id=corr_id,
+            error=str(e),
+            source=source
+        )
+
+        # Fallback to DLQ if available
+        try:
+            dlq_payload = {
+                "original_payload": body.dict(),
+                "error": str(e),
+                "corr_id": corr_id,
+                "source": source,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "processing_mode": "enhanced"
+            }
+
+            await js_client.publish(
+                f"dlq.signals.normalized.{source}",
+                json.dumps(dlq_payload).encode(),
+                headers={"Corr-ID": corr_id, "Error-Type": "processing"}
+            )
+
+            logger.info(
+                "Failed message sent to DLQ",
+                corr_id=corr_id,
+                dlq_subject=f"dlq.signals.normalized.{source}"
+            )
+        except Exception as dlq_error:
+            logger.error(
+                "Failed to send to DLQ",
+                corr_id=corr_id,
+                dlq_error=str(dlq_error)
+            )
+
+        raise HTTPException(
+            status_code=500,
+            detail="GW-013: Enhanced processing failed"
+        )
+
+        # Handle idempotency caching
+        if idempotency_key and 'response' in locals():
             idempotency_cache[idempotency_key] = {
                 "corr_id": corr_id,
                 "payload_hash": hash(str(body.dict())),
@@ -475,18 +758,39 @@ async def process_webhook(
             status_code=503,
             detail="GW-005: NATS timeout"
         )
-    except Exception as e:
-        normalization_errors.labels(source=source).inc()
-        logger.error(
-            "Failed to process webhook",
-            corr_id=corr_id,
-            error=str(e),
-            source=source
-        )
-        raise HTTPException(
-            status_code=500,
-            detail="GW-009: Normalization failed"
-        )
+
+# Health check enhancements for v1.0
+@app.get("/healthz/detailed")
+async def detailed_health_check():
+    """Detailed health check with feature flag status"""
+    health_status = {
+        "ok": True,
+        "service": SERVICE_NAME,
+        "version": "1.0.0",
+        "uptime_seconds": int(time.time() - start_time),
+        "nats_connected": nats_client is not None and nats_client.is_connected,
+        "feature_flags": {
+            "FF_TV_SLICE": FF_TV_SLICE,
+            "FF_ENHANCED_LOGGING": FF_ENHANCED_LOGGING,
+            "FF_CIRCUIT_BREAKER": FF_CIRCUIT_BREAKER
+        },
+        "schema_registry": {
+            "available": True,
+            "schemas_loaded": ["SignalEventV1", "AgentOutputV1", "OrderIntentV1"]
+        }
+    }
+
+    if MAINTENANCE_MODE:
+        health_status["ok"] = False
+        health_status["maintenance"] = True
+        return JSONResponse(status_code=503, content=health_status)
+
+    if not health_status["nats_connected"]:
+        health_status["ok"] = False
+        health_status["error"] = "NATS disconnected"
+        return JSONResponse(status_code=503, content=health_status)
+
+    return health_status
 
 if __name__ == "__main__":
     import uvicorn

@@ -25,7 +25,9 @@ services:
 
   # Gateway service (webhooks and market data ingestion)
   gateway:
-    build: ./repos/at-gateway
+    build:
+      context: ./repos
+      dockerfile: at-gateway/Dockerfile
     depends_on:
       - nats-init
     environment:
@@ -33,6 +35,11 @@ services:
       - API_KEY_HMAC_SECRET=test-secret
       - PORT=8001
       - LOG_LEVEL=INFO
+      - REPLAY_WINDOW_SEC=3600
+      # v1.0 feature flags
+      - FF_TV_SLICE=true
+      - FF_ENHANCED_LOGGING=false
+      - FF_CIRCUIT_BREAKER=true
     ports: ["8001:8001"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/healthz"]
@@ -40,6 +47,67 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
+
+  # Agent orchestrator service (GPT/Claude agents) - v1.0 NEW
+  agent-orchestrator:
+    build:
+      context: ./repos
+      dockerfile: at-agent-orchestrator/Dockerfile
+    depends_on:
+      - nats-init
+      - redis
+    environment:
+      - NATS_URL=nats://nats:4222
+      - REDIS_URL=redis://redis:6379
+      - PORT=8010
+      - LOG_LEVEL=INFO
+      # v1.0 feature flags
+      - FF_AGENT_GPT=true
+      - FF_ENHANCED_LOGGING=false
+    ports: ["8010:8010"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8010/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Output manager service (notifications & paper trading) - v1.0 NEW
+  output-manager:
+    build:
+      context: ./repos
+      dockerfile: at-output-manager/Dockerfile
+    depends_on:
+      - nats-init
+    environment:
+      - NATS_URL=nats://nats:4222
+      - PORT=8008
+      - LOG_LEVEL=INFO
+      # v1.0 feature flags - Enable Telegram for real-world testing
+      - FF_OUTPUT_SLACK=false
+      - FF_OUTPUT_TELEGRAM=true
+      - FF_EXEC_PAPER=true
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
+    ports: ["8008:8008"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8008/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Redis for context storage
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   # Execution simulator (trade execution)
   exec:

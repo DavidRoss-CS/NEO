@@ -63,6 +63,36 @@ scrape_configs:
         regex: '([^:]+)(?::\d+)?'
         replacement: '${1}'
 
+  # Agent Orchestrator service (v1.0.0)
+  - job_name: 'agent-orchestrator'
+    static_configs:
+      - targets: ['agent-orchestrator:8010']
+        labels:
+          service: 'at-agent-orchestrator'
+          component: 'orchestrator'
+    metrics_path: '/metrics'
+    scrape_timeout: 10s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '([^:]+)(?::\d+)?'
+        replacement: '${1}'
+
+  # Output Manager service (v1.0.0)
+  - job_name: 'output-manager'
+    static_configs:
+      - targets: ['output-manager:8008']
+        labels:
+          service: 'at-output-manager'
+          component: 'delivery'
+    metrics_path: '/metrics'
+    scrape_timeout: 10s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '([^:]+)(?::\d+)?'
+        replacement: '${1}'
+
   # Execution simulator
   - job_name: 'execution'
     static_configs:
@@ -135,6 +165,8 @@ scrape_configs:
     static_configs:
       - targets:
           - http://at-gateway:8001/healthz
+          - http://agent-orchestrator:8010/healthz
+          - http://output-manager:8008/healthz
           - http://at-orchestrator:9090/healthz
           - http://at-mcp:8003/health
         labels:

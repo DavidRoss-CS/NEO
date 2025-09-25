@@ -2,20 +2,26 @@
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 structlog==23.2.0
+pydantic==2.5.0
 
 # NATS messaging
 nats-py==2.6.0
 
+# HTTP client for webhooks
+httpx==0.25.1
+
+# Telegram bot integration
+python-telegram-bot==20.6
+
+# Templating for notifications
+jinja2==3.1.2
+
 # Prometheus metrics
 prometheus-client==0.19.0
-
-# Schema validation
-jsonschema==4.20.0
-pydantic==2.5.0
 
 # NEO schema registry (at-core will be added to PYTHONPATH)
 # -e ./at-core
 
-# Testing only (not installed in production)
+# Testing (development only)
 # pytest==7.4.3
-# httpx==0.25.1
+# pytest-asyncio==0.21.1
